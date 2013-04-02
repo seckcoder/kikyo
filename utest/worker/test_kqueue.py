@@ -27,3 +27,4 @@ class KQueueTestCase(unittest2.TestCase):
         kq.touch('normal/10.1.9.9')
         kq.makegroup('urgent/group1')
         kq.touch('urgent/group1/subgroup2/x.x.x.x')
+        print kq.find('urgent/group1/subgroup2')

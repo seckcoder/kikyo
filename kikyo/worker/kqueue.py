@@ -128,6 +128,7 @@ class KGroupQueueAbstract(object):
 
     def find(self, key):
         """
+        find the group that matches the key
         """
         if key:
             keys = key.split('/')
