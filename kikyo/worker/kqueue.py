@@ -5,7 +5,7 @@
 
 from .buckets import TokenBucketQueue, FastQueue, RateLimitExceeded
 from kikyo.utils.limits import TokenBucket
-from kikyo.five import Queue, Empty
+from kikyo.five import Queue, Empty, items
 from kikyo.utils import timeutils
 
 class KQueueNotFound(Exception):
@@ -24,8 +24,13 @@ class KFastQueue(FastQueue, KQueueMixin):
     def __init__(self, qkey, *args, **kw):
         FastQueue.__init__(self, *args, **kw)
         KQueueMixin.__init__(self, qkey)
+    def __repr__(self):
+        return "KFastQueue__{0}".format(self.__qkey__)
 
-        
+def isgroupqueue(kq):
+    return isinstance(kq, KGroupQueueAbstract)
+def isqueue(kq):
+    return isinstance(kq, KQueueMixin)
 class KTokenBucketQueue(TokenBucketQueue, KQueueMixin):
     def __init__(self, qkey, **kw):
         self.formatkw(kw)
@@ -35,6 +40,9 @@ class KTokenBucketQueue(TokenBucketQueue, KQueueMixin):
         fill_rate = kw['rate_limit']
         kw['fill_rate'] = fill_rate
         del kw['rate_limit']
+    def __repr__(self):
+        return "KTokenBucketQueue:{0}".format(self.__qkey__)
+
 class KGroupQueueAbstract(object):
     def __init__(self, qkey=None):
         self.__lastput__ = -1
@@ -83,34 +91,48 @@ class KGroupQueueAbstract(object):
         if key:
             keys = key.split('/')
             qkey = keys[-1]
-            cur_rate = rate_limits[-1] if rate_limits else None
             groupkeys = keys[0:-1]
-            groupqueue = self
+            que = self.find(qkey) or KQueue.make(
+                qkey=qkey, rate_limit=rate_limits[-1] if rate_limits else None)
             if groupkeys:
                 groupqueue = self.makegroup('/'.join(groupkeys), rate_limits[0:-1] if rate_limits else None)
-            groupqueue.addque(qkey, KQueue.make(qkey=qkey, rate_limit=cur_rate))
+            else:
+                groupqueue = self
+            groupqueue.addque(qkey, que)
+            return que
     def makegroup(self, key, rate_limits=None):
         if key:
             keys = key.split('/')
             qkey = keys[0]
-            cur_rate = rate_limits[0] if rate_limits else None
-            kq = KGroupQueue.make(rate_limit=cur_rate)
-            kq.makegroup('/'.join(key[1:]), rate_limits[1:] if rate_limits else None)
-            self.kqmap[qkey] = kq
-    def addque(self, qkey, queue):
+            que = self.find(qkey) or KGroupQueue.make(
+                qkey=qkey, rate_limit=rate_limits[0] if rate_limits else None)
+            if len(keys) > 1:
+                que.makegroup('/'.join(keys[1:]), rate_limits[1:] if rate_limits else None)
+            self.addque(qkey, que)
+            return que
+    def addque(self, qkey, queue, update=False):
         """
-        Directly add queue to the current queue group
+        Directly add queue to the current queue group.
         """
-        self.kqmap[qkey] = queue
+        if update or (qkey not in self.kqmap):
+            self.kqmap[qkey] = queue
 
     def find(self, key):
+        """
+        """
         if key:
             keys = key.split('/')
             cur_key = keys[0]
-            if self.kqmap[cur_key]:
+            if len(keys) == 1:
+                return self.kqmap.get(cur_key)
+            elif cur_key in self.kqmap:
                 return self.kqmap[cur_key].find('/'.join(keys[1:]))
     def __repr__(self):
-        pass
+        output = "{"
+        for key, que in items(self.kqmap):
+            output += "{0}:{1};".format(key, repr(que))
+        output += "}"
+        return output
 class KFastGroupQueue(KGroupQueueAbstract):
     KQueueCls = KFastQueue
     def __init__(self, *args, **kw):
@@ -142,5 +164,7 @@ class KGroupQueue(object):
             kw['rate_limit'] = timeutils.rate(kw['rate_limit'])
             groupqueue = KTokenBucketGroupQueue(**kw)
         else:
+            if 'rate_limit' in kw:
+                del kw['rate_limit']
             groupqueue = KFastGroupQueue(**kw)
         return groupqueue
