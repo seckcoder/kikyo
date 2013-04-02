@@ -29,6 +29,11 @@ class TokenBucket(object):
     fill_rate = None
 
     #: Maximum number of tokensin the bucket.
+    # NOTE(by seckcoder) : Note that capacity is used to control
+    # how fast the tokens should be consumed. For example
+    # if the fill_rate = 200/s, then if capacity = 1, it means
+    # that you can't consume all the 200 tokens in 0.005s, but only to
+    # consume 1 token every 0.005s
     capacity = 1
 
     #: Timestamp of the last time a token was taken out of the bucket.

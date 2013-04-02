@@ -43,7 +43,8 @@ else:
 
 
 # Optimized with gevent queue
-from gevent.queue import Queue, Empty
+from gevent.queue import Queue, Empty, PriorityQueue
+from gevent import sleep
 
 if PY3:
     import builtins
