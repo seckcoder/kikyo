@@ -23,10 +23,7 @@ class KQueueTestCase(unittest2.TestCase):
             for i in xrange(10):
                 kq.get(block=True)
     def test_kgroupqueue(self):
-        kq = KGroupQueue.make()
-        for key in ['normal', 'urgent']:
-            kq.addque(key, KGroupQueue.make(qkey=key))
         kq = KGroupQueue.make(qkey='global')
         kq.touch('normal/10.1.9.9')
         kq.makegroup('urgent/group1')
-        kq.touch('urgent/group1/0.0.0.0')
+        kq.touch('urgent/group1/subgroup2/x.x.x.x')

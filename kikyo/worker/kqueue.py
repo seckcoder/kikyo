@@ -88,6 +88,9 @@ class KGroupQueueAbstract(object):
     def get_nowait(self, key=None):
         return self.get(key=key, block=False)
     def touch(self, key, rate_limits=None):
+        """
+        Make sub groups and queue, the deepest queue will be returned
+        """
         if key:
             keys = key.split('/')
             qkey = keys[-1]
@@ -101,15 +104,21 @@ class KGroupQueueAbstract(object):
             groupqueue.addque(qkey, que)
             return que
     def makegroup(self, key, rate_limits=None):
+        """
+        Make sub groups, the deepest group will be returned
+        """
         if key:
             keys = key.split('/')
             qkey = keys[0]
             que = self.find(qkey) or KGroupQueue.make(
                 qkey=qkey, rate_limit=rate_limits[0] if rate_limits else None)
             if len(keys) > 1:
-                que.makegroup('/'.join(keys[1:]), rate_limits[1:] if rate_limits else None)
-            self.addque(qkey, que)
-            return que
+                subgroup = que.makegroup('/'.join(keys[1:]), rate_limits[1:] if rate_limits else None)
+                self.addque(qkey, que)
+                return subgroup
+            else:
+                self.addque(qkey, que)
+                return que
     def addque(self, qkey, queue, update=False):
         """
         Directly add queue to the current queue group.
@@ -128,9 +137,9 @@ class KGroupQueueAbstract(object):
             elif cur_key in self.kqmap:
                 return self.kqmap[cur_key].find('/'.join(keys[1:]))
     def __repr__(self):
-        output = "{"
+        output = "%s{" % self.__qkey__
         for key, que in items(self.kqmap):
-            output += "{0}:{1};".format(key, repr(que))
+            output += "{0}".format(repr(que))
         output += "}"
         return output
 class KFastGroupQueue(KGroupQueueAbstract):
